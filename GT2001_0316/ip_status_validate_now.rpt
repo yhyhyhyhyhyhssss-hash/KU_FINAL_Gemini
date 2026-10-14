@@ -1,0 +1,75 @@
+Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2018.3 (win64) Build 2405991 Thu Dec  6 23:38:27 MST 2018
+| Date         : Thu Apr 23 17:13:03 2026
+| Host         : spideryh running 64-bit major release  (build 9200)
+| Command      : report_ip_status
+------------------------------------------------------------------------------------
+
+IP Status Summary
+
+1. Project IP Status
+--------------------
+Your project uses 11 IP. Some of these IP may have undergone changes in this release of the software. Please review the recommended actions.
+
+More information on the Xilinx versioning policy is available at www.xilinx.com.
+
+Project IP Instances
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| Instance Name                 | Status     | Recommendation      | Change    | IP Name            | IP      | New Version   | New        | Original Part        |
+|                               |            |                     | Log       |                    | Version |               | License    |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| system_Ku_TR_SPI_0_0          | Up-to-date | No changes required | Change    | Ku_TR_SPI_v1_0_v1_ | 1.0     | 1.0 (Rev. 1)  | Included   | xc7z020clg484-2      |
+|                               |            |                     | Log not   |                    | (Rev.   |               |            |                      |
+|                               |            |                     | available |                    | 1)      |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| system_axi_spi_ip_0_0         | Up-to-date | No changes required | Change    | axi_spi_ip_v1.0    | 1.0     | 1.0 (Rev. 5)  | Included   | xc7z020clg484-2      |
+|                               |            |                     | Log not   |                    | (Rev.   |               |            |                      |
+|                               |            |                     | available |                    | 5)      |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| system_axi_uart_x4_ip_0_0     | Up-to-date | No changes required | Change    | axi_uart_x4_ip_v1. | 1.0     | 1.0 (Rev. 4)  | Included   | xc7z020clg484-2      |
+|                               |            |                     | Log not   |                    | (Rev.   |               |            |                      |
+|                               |            |                     | available |                    | 4)      |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| system_processing_system7_0_0 | Up-to-date | No changes required |  *(1)     | ZYNQ7 Processing   | 5.5     | 5.5 (Rev. 6)  | Included   | xc7z020clg484-2      |
+|                               |            |                     |           | System             | (Rev.   |               |            |                      |
+|                               |            |                     |           |                    | 6)      |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| system_ps7_0_axi_periph_0     | Up-to-date | No changes required |  *(2)     | AXI Interconnect   | 2.1     | 2.1 (Rev. 19) | Included   | xc7z020clg484-2      |
+|                               |            |                     |           |                    | (Rev.   |               |            |                      |
+|                               |            |                     |           |                    | 19)     |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| system_rst_ps7_0_50M_0        | Up-to-date | No changes required |  *(3)     | Processor System   | 5.0     | 5.0 (Rev. 13) | Included   | xc7z020clg484-2      |
+|                               |            |                     |           | Reset              | (Rev.   |               |            |                      |
+|                               |            |                     |           |                    | 13)     |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| fifo_RX_r                     | Up-to-date | No changes required |  *(4)     | FIFO Generator     | 13.2    | 13.2 (Rev. 3) | Included   | xc7z020clg484-2      |
+|                               |            |                     |           |                    | (Rev.   |               |            |                      |
+|                               |            |                     |           |                    | 3)      |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| fifo_RX_t                     | Up-to-date | No changes required |  *(5)     | FIFO Generator     | 13.2    | 13.2 (Rev. 3) | Included   | xc7z020clg484-2      |
+|                               |            |                     |           |                    | (Rev.   |               |            |                      |
+|                               |            |                     |           |                    | 3)      |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| fifo_TX_r                     | Up-to-date | No changes required |  *(6)     | FIFO Generator     | 13.2    | 13.2 (Rev. 3) | Included   | xc7z020clg484-2      |
+|                               |            |                     |           |                    | (Rev.   |               |            |                      |
+|                               |            |                     |           |                    | 3)      |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| fifo_TX_t                     | Up-to-date | No changes required |  *(7)     | FIFO Generator     | 13.2    | 13.2 (Rev. 3) | Included   | xc7z020clg484-2      |
+|                               |            |                     |           |                    | (Rev.   |               |            |                      |
+|                               |            |                     |           |                    | 3)      |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+| fifo_uart                     | Up-to-date | No changes required |  *(8)     | FIFO Generator     | 13.2    | 13.2 (Rev. 3) | Included   | xc7z020clg484-2      |
+|                               |            |                     |           |                    | (Rev.   |               |            |                      |
+|                               |            |                     |           |                    | 3)      |               |            |                      |
++-------------------------------+------------+---------------------+-----------+--------------------+---------+---------------+------------+----------------------+
+*(1) d:/app/pro_app/Vivado/Vivado/2018.3/data/ip/xilinx/processing_system7_v5_5/doc/processing_system7_v5_5_changelog.txt
+*(2) d:/app/pro_app/Vivado/Vivado/2018.3/data/ip/xilinx/axi_interconnect_v2_1/doc/axi_interconnect_v2_1_changelog.txt
+*(3) d:/app/pro_app/Vivado/Vivado/2018.3/data/ip/xilinx/proc_sys_reset_v5_0/doc/proc_sys_reset_v5_0_changelog.txt
+*(4) d:/app/pro_app/Vivado/Vivado/2018.3/data/ip/xilinx/fifo_generator_v13_2/doc/fifo_generator_v13_2_changelog.txt
+*(5) d:/app/pro_app/Vivado/Vivado/2018.3/data/ip/xilinx/fifo_generator_v13_2/doc/fifo_generator_v13_2_changelog.txt
+*(6) d:/app/pro_app/Vivado/Vivado/2018.3/data/ip/xilinx/fifo_generator_v13_2/doc/fifo_generator_v13_2_changelog.txt
+*(7) d:/app/pro_app/Vivado/Vivado/2018.3/data/ip/xilinx/fifo_generator_v13_2/doc/fifo_generator_v13_2_changelog.txt
+*(8) d:/app/pro_app/Vivado/Vivado/2018.3/data/ip/xilinx/fifo_generator_v13_2/doc/fifo_generator_v13_2_changelog.txt
+
+

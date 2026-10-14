@@ -1,0 +1,18 @@
+# vsim -c work.tb_tx_spi_inf -do "run -all; quit -f" 
+# Start time: 21:47:21 on Mar 18,2026
+# Loading work.tb_tx_spi_inf
+# Loading work.tx_spi_inf
+# run -all
+# [TB] Frame 1 end: bits=0 cmd=0x000000
+# [TB] Frame 2 end: bits=24 cmd=0x211234
+# [TB] LDAC pulse detected at t=54330000
+# [TB] Inter-frame gap before frame 2: SCLK rising edges while SYNC=1 -> 4
+# [TB] Frame 3 end: bits=24 cmd=0x3800aa
+# [TB] Inter-frame gap before frame 3: SCLK rising edges while SYNC=1 -> 4
+# [TB] Frame 4 end: bits=25 cmd=0x7fffff
+# [TB] Readback = 0x5ac37e, expected = 0x5ac37e
+# [TB][PASS] tx_spi_inf write/read sequence passed.
+# ** Note: $finish    : tb_tx_spi_inf.v(206)
+#    Time: 75710 ns  Iteration: 1  Instance: /tb_tx_spi_inf
+# End time: 21:47:22 on Mar 18,2026, Elapsed time: 0:00:01
+# Errors: 0, Warnings: 0

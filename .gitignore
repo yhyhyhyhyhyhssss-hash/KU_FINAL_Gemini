@@ -1,0 +1,68 @@
+# Vivado generated state and build output
+.Xil/
+*.runs/
+*.cache/
+*.hw/
+*.sim/
+*.ip_user_files/
+*.jou
+*.log
+*.str
+*.tmp
+vivado_pid*
+min_area_pfile.tmp
+
+# Vivado/SDK generated exports and binaries
+*.bit
+*.bin
+*.elf
+*.hdf
+*.hwdef
+*.sysdef
+*.vdi
+*.vds
+*.zip
+**/Debug/
+**/Release/
+**/bootimage/
+**/.metadata/
+**/.metadata_*/
+**/.temp/
+**/webtalk/
+
+# Generated SDK/BSP metadata
+**/*.wdat
+**/*.wdm
+**/*.log
+**/*.jou
+**/RemoteSystemsTempFiles/
+
+# IP and simulator generated work directories
+**/src/work/
+**/work/
+**/xsim.dir/
+**/vsim/
+**/questa/
+
+# Python and desktop-tool caches/builds
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.cache/
+build/
+dist/
+*.spec
+
+# Local IDE and OS files
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+Thumbs.db
+Desktop.ini
+
+# Local serial-monitor data
+tools/serial_monitor/.cache/
+tools/serial_monitor/logs/

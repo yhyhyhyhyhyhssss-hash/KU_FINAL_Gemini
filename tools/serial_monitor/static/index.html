@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GT2001 相控阵天线综合监视与控制台</title>
+    <link rel="stylesheet" href="style.css?v=20260917_v5">
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <div class="app-logo">
+                <div class="logo-badge">📡</div>
+                <div class="logo-text-group">
+                    <span class="logo-title">GT2001 波控综合监控台</span>
+                </div>
+            </div>
+            <!-- 顶部侧栏一键折叠/展开按钮 -->
+            <button class="btn-hdr-sidebar-toggle" id="btnHdrSidebarToggle" onclick="toggleSidebarCollapse()" title="折叠/展开控制侧栏 (快捷键 Alt+S)">
+                <span class="sidebar-icon">◧</span>
+                <span id="hdrSidebarBtnText">收起侧栏</span>
+            </button>
+        </div>
+
+        <!-- System Quick Status Center in Header -->
+        <div class="header-center">
+            <div class="system-status-pill power-pill" id="hdrPowerPill">
+                <span class="dot"></span>
+                <span class="txt" id="hdrPowerText">阵面电源: 未知</span>
+            </div>
+            <div class="system-status-pill mode-pill" id="hdrModePill">
+                <span class="dot"></span>
+                <span class="txt" id="hdrModeText">对星模式: 手动 (MANUAL)</span>
+            </div>
+            <div class="header-uart-pills">
+                <div class="uart-status-badge" id="hdrUart0Pill">
+                    <span class="mini-dot" id="dotHdrUart0"></span>
+                    <span class="tag-name">UART0</span>
+                    <span class="baud-tag">115200</span>
+                </div>
+                <div class="uart-status-badge" id="hdrUart3Pill">
+                    <span class="mini-dot" id="dotHdrUart3"></span>
+                    <span class="tag-name">UART3</span>
+                    <span class="baud-tag">921600</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <!-- Array Switcher (TX / RX) -->
+            <div class="segmented-control array-control">
+                <button id="btnTxArray" class="seg-btn active" onclick="switchArray('TX')">TX 发射</button>
+                <button id="btnRxArray" class="seg-btn" onclick="switchArray('RX')">RX 接收</button>
+            </div>
+
+            <!-- View Mode Switcher (Shortened labels to save 120px) -->
+            <div class="segmented-control mode-control">
+                <button id="btnModeBoth" class="seg-btn" onclick="setDisplayMode('BOTH')">全显</button>
+                <button id="btnModePhase" class="seg-btn active" onclick="setDisplayMode('PHASE')">相位</button>
+                <button id="btnModeAmp" class="seg-btn" onclick="setDisplayMode('AMP')">幅度</button>
+            </div>
+
+            <!-- Search Input (Fixed width with high priority) -->
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="搜CH或芯片" oninput="onSearchFilter()">
+                <button id="searchClearBtn" class="search-clear" onclick="clearSearch()" title="清除">✕</button>
+            </div>
+
+            <!-- Compact Console View Toggle -->
+            <button id="btnToggleCompact" class="btn-compact-view" onclick="toggleCompactMode()" title="切换纯控制台界面 / 双列全阵面">
+                <span class="compact-icon">🖥️</span>
+                <span id="compactBtnText">双列</span>
+            </button>
+
+            <!-- Simulation Mode Toggle -->
+            <button id="btnSimToggle" class="btn-sim" onclick="toggleSimulation()" title="开启/关闭免硬件本地模拟数据流">
+                <span class="sim-dot"></span>
+                <span id="simBtnText">模拟: 关</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Subtitle Notice Banner matching Image 1 -->
+    <div class="notice-bar">
+        <div class="notice-legend">
+            <span class="legend-item"><span class="badge-dot yellow"></span> 芯片第 1/3 行: 7-0 排列 (黄标)</span>
+            <span class="legend-item"><span class="badge-dot green"></span> 芯片第 2/4 行: 0-7 排列 (绿标)</span>
+            <span class="legend-note">每个芯片 8 通道; TX/RX 通道几何一致, 芯片 ID 物理排布不同</span>
+        </div>
+        <div class="notice-metrics">
+            <span class="metric-item">阵面拓扑: <strong id="lblGridDims">4×4 阵列 (16 芯片 · 128 通道)</strong></span>
+            <span class="metric-item">最后回读: <strong id="lblLastUpdate">--:--:--</strong></span>
+        </div>
+    </div>
+
+    <!-- Main Workspace Container -->
+    <div class="main-container">
+        <!-- Left Control & Serial Panels -->
+        <aside class="sidebar-panel">
+            <!-- Scrollable Upper Section for Configuration Cards -->
+            <!-- Scrollable Upper Section for Configuration Cards -->
+            <div class="sidebar-top-section" id="sidebarTopSection">
+                <!-- 1. Dual UART Connection Box with Visual Anchor -->
+                <div class="card-box serial-card anchor-card-uart">
+                    <div class="card-header">
+                        <div class="card-title-wrap">
+                            <span class="anchor-badge badge-uart">01 · 串口物理链路</span>
+                            <span class="card-title">🔌 双串口独立配置</span>
+                        </div>
+                        <div class="card-header-actions" style="display: flex; gap: 4px; align-items: center;">
+                            <button class="btn-xs btn-refresh-ports" onclick="refreshPortList()" title="重新扫描可用 COM 口">🔄 刷新</button>
+                            <button class="btn-xs btn-collapse-sidebar" onclick="toggleSidebarCollapse()" title="折叠侧栏，全屏监视相控阵面 (Alt+S)">◀ 折叠侧栏</button>
+                        </div>
+                    </div>
+                    <div class="card-body serial-card-body">
+                        <!-- UART0: Command Port Row -->
+                        <div class="uart-row-compact">
+                            <div class="uart-meta-compact" title="控制指令下发口 (Tx/Rx)">
+                                <span class="status-indicator" id="indUart0"></span>
+                                <span class="uart-tag">UART0</span>
+                                <span class="uart-speed-badge">115.2K</span>
+                            </div>
+                            <div class="uart-inputs-compact">
+                                <select id="selPortUart0" class="input-sm select-port" title="选择 UART0 串口号"></select>
+                                <select id="selBaudUart0" class="input-sm select-baud" title="UART0 波特率">
+                                    <option value="115200" selected>115200</option>
+                                    <option value="9600">9600</option>
+                                    <option value="19200">19200</option>
+                                    <option value="57600">57600</option>
+                                    <option value="230400">230400</option>
+                                    <option value="460800">460800</option>
+                                    <option value="921600">921600</option>
+                                </select>
+                                <button id="btnConnectUart0" class="btn-sm btn-primary" onclick="toggleConnectUart('uart0')">连接</button>
+                            </div>
+                        </div>
+
+                        <!-- UART3: Readback & Debug Stream Row -->
+                        <div class="uart-row-compact" style="margin-top: 5px;">
+                            <div class="uart-meta-compact" title="幅相遥测回读口 (Rx 高速流)">
+                                <span class="status-indicator" id="indUart3"></span>
+                                <span class="uart-tag">UART3</span>
+                                <span class="uart-speed-badge highlight">921.6K</span>
+                            </div>
+                            <div class="uart-inputs-compact">
+                                <select id="selPortUart3" class="input-sm select-port" title="选择 UART3 串口号"></select>
+                                <select id="selBaudUart3" class="input-sm select-baud" title="UART3 波特率">
+                                    <option value="921600" selected>921600</option>
+                                    <option value="115200">115200</option>
+                                    <option value="9600">9600</option>
+                                    <option value="19200">19200</option>
+                                    <option value="57600">57600</option>
+                                    <option value="230400">230400</option>
+                                    <option value="460800">460800</option>
+                                </select>
+                                <button id="btnConnectUart3" class="btn-sm btn-primary" onclick="toggleConnectUart('uart3')">连接</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Command Control Center (Tabbed) with Visual Anchor -->
+                <div class="card-box cmd-card anchor-card-cmd">
+                    <!-- Navigation Tabs with Visual Anchors & Function Codes -->
+                    <div class="cmd-tabs-header">
+                        <button id="cmdTabBtn_power_pts" class="cmd-tab-btn active" onclick="switchCmdTab('power_pts')" title="阵面电源使能与全开全关 (0x03 / 0x05)">
+                            <span class="tab-fcode">03</span>
+                            <span class="tab-txt">⚡电源/通道</span>
+                        </button>
+                        <button id="cmdTabBtn_beam" class="cmd-tab-btn" onclick="switchCmdTab('beam')" title="ATS波束指向配置 (0x07)">
+                            <span class="tab-fcode">07</span>
+                            <span class="tab-txt">📡波束指向</span>
+                        </button>
+                        <button id="cmdTabBtn_reg" class="cmd-tab-btn" onclick="switchCmdTab('reg')" title="TR芯片4寄存器下发 (0x09)">
+                            <span class="tab-fcode">09</span>
+                            <span class="tab-txt">💾TR寄存器</span>
+                        </button>
+                        <button id="cmdTabBtn_raw" class="cmd-tab-btn" onclick="switchCmdTab('raw')" title="自定义ASCII与HEX指令调试">
+                            <span class="tab-fcode">RAW</span>
+                            <span class="tab-txt">⌨️原始调试</span>
+                        </button>
+                        <button id="cmdTabBtn_ert" class="cmd-tab-btn" onclick="switchCmdTab('ert')" title="单点与全阵面误差表清零 (0x08)">
+                            <span class="tab-fcode">08</span>
+                            <span class="tab-txt">🛠️误差清零</span>
+                        </button>
+                    </div>
+
+                <div class="cmd-tabs-body">
+                    <!-- Tab 1: Array Power ON/OFF & Channel Control & Pointing Select ($PTS) -->
+                    <div id="tabContent_power_pts" class="cmd-tab-content active">
+                        <!-- 1. Power Section -->
+                        <div class="cmd-group">
+                            <div class="group-header" style="margin-bottom: 3px;">
+                                <span class="group-title">1. 阵面总电源 (0x03)</span>
+                                <span class="group-badge" id="badgePowerState">状态: 未知</span>
+                            </div>
+                            <div class="form-row-center" style="margin-bottom: 3px;">
+                                <span class="lbl-inline">目标:</span>
+                                <label class="radio-pill"><input type="radio" name="pwrTarget" value="15" checked> 双阵面(ALL)</label>
+                                <label class="radio-pill"><input type="radio" name="pwrTarget" value="255"> 发射(TX)</label>
+                                <label class="radio-pill"><input type="radio" name="pwrTarget" value="0"> 接收(RX)</label>
+                            </div>
+                            <div class="btn-dual-row compact">
+                                <button class="btn-action btn-power-on" onclick="sendPowerCmd(1)">
+                                    <span class="btn-icon">⚡</span>
+                                    <span class="btn-text">阵面上电 (ON)</span>
+                                </button>
+                                <button class="btn-action btn-power-off" onclick="sendPowerCmd(0)">
+                                    <span class="btn-icon">🛑</span>
+                                    <span class="btn-text">阵面下电 (OFF)</span>
+                                </button>
+                            </div>
+                            <div class="btn-dual-row compact" style="margin-top: 3px;">
+                                <button class="btn-action btn-danger" style="width: 100%;" onclick="resetAllRegisters()" title="下发复位指令(0x01)，重置所有TR芯片与所有寄存器值回到初始化未读状态">
+                                    <span class="btn-icon">🔄</span>
+                                    <span class="btn-text">阵面/寄存器复位 (0x01 RESET)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 2. Whole-Array Channel Total Control Section (发射/接收全开全关) -->
+                        <div class="cmd-group" style="margin-top: 4px;">
+                            <div class="group-header" style="margin-bottom: 3px;">
+                                <span class="group-title">2. 阵面通道总控 (0x05)</span>
+                                <div class="group-badges-wrap">
+                                    <span class="group-badge" id="badgeTxChlState">TX: 未知</span>
+                                    <span class="group-badge" id="badgeRxChlState">RX: 未知</span>
+                                </div>
+                            </div>
+                            <!-- TX Channels Control -->
+                            <div class="chl-compact-row">
+                                <span class="chl-compact-lbl">📡 发射通道 (TX 128路):</span>
+                                <div class="btn-dual-row compact">
+                                    <button class="btn-action btn-chl-on" onclick="sendChannelAllCmd('TX', 1)" title="自动先复位阵面芯片，再开启所有发射通道 (自带复位防呆)">🟢 发射全开 (带复位)</button>
+                                    <button class="btn-action btn-chl-off" onclick="sendChannelAllCmd('TX', 0)" title="自动先复位阵面芯片，再关闭所有发射通道 (自带复位防呆)">🔴 发射全关 (带复位)</button>
+                                </div>
+                            </div>
+                            <!-- RX Channels Control -->
+                            <div class="chl-compact-row" style="margin-top: 3px;">
+                                <span class="chl-compact-lbl">🛰️ 接收通道 (RX 128路):</span>
+                                <div class="btn-dual-row compact">
+                                    <button class="btn-action btn-chl-on" onclick="sendChannelAllCmd('RX', 1)" title="自动先复位阵面芯片，再开启所有接收通道 (自带复位防呆)">🟢 接收全开 (带复位)</button>
+                                    <button class="btn-action btn-chl-off" onclick="sendChannelAllCmd('RX', 0)" title="自动先复位阵面芯片，再关闭所有接收通道 (自带复位防呆)">🔴 接收全关 (带复位)</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. Single Channel Refined Control (单通道精细控制 0x02) -->
+                        <div class="cmd-group" style="margin-top: 4px;">
+                            <div class="group-header" style="margin-bottom: 3px;">
+                                <span class="group-title">3. 单通道精细控制 (0x02)</span>
+                                <span class="group-badge" id="badgeSingleChState">开通道后点亮</span>
+                            </div>
+                            <div class="single-ch-split-box">
+                                <!-- 左侧：参数输入区 -->
+                                <div class="single-ch-left">
+                                    <div class="form-row-center" style="margin-bottom: 2px;">
+                                        <span class="lbl-inline">阵面:</span>
+                                        <label class="radio-pill"><input type="radio" name="singleChDir" value="TX" checked> 发射(TX)</label>
+                                        <label class="radio-pill"><input type="radio" name="singleChDir" value="RX"> 接收(RX)</label>
+                                    </div>
+                                    <div class="form-grid-2col" style="margin-bottom: 2px; gap: 4px;">
+                                        <div class="form-item">
+                                            <label class="form-label" style="margin-bottom: 1px; font-size: 10px;">芯片ID(0~15):</label>
+                                            <select id="singleChChipId" class="form-select" style="height: 22px; padding: 1px 3px; font-size: 11px;"></select>
+                                        </div>
+                                        <div class="form-item">
+                                            <label class="form-label" style="margin-bottom: 1px; font-size: 10px;">通道号(CH0~7):</label>
+                                            <select id="singleChNum" class="form-select" style="height: 22px; padding: 1px 3px; font-size: 11px;">
+                                                <option value="0">CH0 (0)</option>
+                                                <option value="1">CH1 (1)</option>
+                                                <option value="2">CH2 (2)</option>
+                                                <option value="3">CH3 (3)</option>
+                                                <option value="4">CH4 (4)</option>
+                                                <option value="5">CH5 (5)</option>
+                                                <option value="6">CH6 (6)</option>
+                                                <option value="7">CH7 (7)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-grid-2col" style="gap: 4px;">
+                                        <div class="form-item">
+                                            <label class="form-label" style="margin-bottom: 1px; font-size: 10px;">幅度(0~63):</label>
+                                            <input type="number" id="singleChAmp" class="form-input" min="0" max="63" value="63" style="height: 22px; padding: 1px 3px; font-size: 11px;">
+                                        </div>
+                                        <div class="form-item">
+                                            <label class="form-label" style="margin-bottom: 1px; font-size: 10px;">相位(0~63):</label>
+                                            <input type="number" id="singleChPhase" class="form-input" min="0" max="63" value="0" style="height: 22px; padding: 1px 3px; font-size: 11px;">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 右侧：开关与写幅相操作按钮区 -->
+                                <div class="single-ch-right">
+                                    <div class="single-ch-right-btn-group">
+                                        <button class="btn-action btn-chl-on btn-single-op" onclick="sendSingleChannelCmd('OPEN')" title="单通道开 (自动前置先对该单通道关断复位防呆，不影响其他通道，回读确认后点亮)">
+                                            🟢 开通道 (先单复位)
+                                        </button>
+                                        <button class="btn-action btn-chl-off btn-single-op" onclick="sendSingleChannelCmd('CLOSE')" title="单通道关 (对当前单通道执行关断复位，回读确认后熄灭)">
+                                            🔴 关通道
+                                        </button>
+                                    </div>
+                                    <button class="btn-action btn-primary btn-single-op btn-single-write" onclick="sendSingleChannelCmd('SET')" title="单通道写入幅相，并利用现有函数触发全寄存器回读">
+                                        <span class="btn-icon">✍️</span>
+                                        <span class="btn-text">写入幅相并回读</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. PTS Mode Section -->
+                        <div class="cmd-group" style="margin-top: 4px;">
+                            <div class="group-header" style="margin-bottom: 3px;">
+                                <span class="group-title">4. 对星模式切换 ($PTS)</span>
+                                <span class="group-badge" id="badgePtsState">手动模式</span>
+                            </div>
+                            <div class="btn-dual-row compact">
+                                <button class="btn-action btn-success" onclick="sendPtsCmd(1)">
+                                    <span class="btn-icon">🚀</span>
+                                    <span class="btn-text">自动对星 ($PTS,1)</span>
+                                </button>
+                                <button class="btn-action btn-warning" onclick="sendPtsCmd(0)">
+                                    <span class="btn-icon">⏸️</span>
+                                    <span class="btn-text">手动对星 ($PTS,0)</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Manual Beam Setting ($xxATS) -->
+                    <div id="tabContent_beam" class="cmd-tab-content">
+                        <div class="cmd-group">
+                            <div class="group-header">
+                                <span class="group-title">波束指向参数 ($xxATS)</span>
+                                <div class="preset-links">
+                                    <button class="btn-link" onclick="applyAtsPreset(0, 0)">法向 0°</button>
+                                    <button class="btn-link" onclick="applyAtsPreset(15, 0)">俯仰 15°</button>
+                                    <button class="btn-link" onclick="applyAtsPreset(30, 45)">30°/45°</button>
+                                </div>
+                            </div>
+                            <div class="param-grid three-cols">
+                                <div class="param-item">
+                                    <span class="lbl">俯仰/离轴 (°)</span>
+                                    <input type="number" id="inpPitch" value="0.0" step="0.5" class="input-sm">
+                                </div>
+                                <div class="param-item">
+                                    <span class="lbl">方位角 (°)</span>
+                                    <input type="number" id="inpYaw" value="0.0" step="0.5" class="input-sm">
+                                </div>
+                                <div class="param-item">
+                                    <span class="lbl">姿控使能 (0/1)</span>
+                                    <input type="number" id="inpAdcl" value="0" min="0" max="1" class="input-sm">
+                                </div>
+                                <div class="param-item">
+                                    <span class="lbl">RX极化 (°)</span>
+                                    <input type="number" id="inpPolR" value="0.0" step="1" class="input-sm">
+                                </div>
+                                <div class="param-item">
+                                    <span class="lbl">TX极化 (°)</span>
+                                    <input type="number" id="inpPolT" value="0.0" step="1" class="input-sm">
+                                </div>
+                                <div class="param-item">
+                                    <span class="lbl">RX频率 (MHz)</span>
+                                    <input type="number" id="inpFreqR" value="12250.0" step="10" class="input-sm">
+                                </div>
+                            </div>
+                            <div class="form-row-single" style="margin-top: 6px;">
+                                <span class="lbl">TX频率 (MHz):</span>
+                                <input type="number" id="inpFreqT" value="14250.0" step="10" class="input-sm flex-1" style="margin-left: 6px;">
+                            </div>
+                            <button class="btn-block btn-blue" onclick="sendAtsCmd()" style="margin-top: 10px;" title="下发手动波束指向指令 ($xxATS)">
+                                📡 下发手动波束指向指令 (波束更新)
+                            </button>
+
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: TR Registers Quick Config ($xxREG & $xxBIP) -->
+                    <div id="tabContent_reg" class="cmd-tab-content">
+                        <div class="cmd-group">
+                            <div class="group-header">
+                                <span class="group-title">TR 芯片寄存器与偏置配置 ($xxREG / $xxBIP)</span>
+                                <span class="group-badge badge-preset" id="badgeActivePreset">推3: 黄金高敏</span>
+                            </div>
+
+                            <!-- Target Chip Selection Row -->
+                            <div class="reg-target-section">
+                                <div class="reg-target-header">
+                                    <span class="reg-target-label">🎯 目标芯片:</span>
+                                    <select id="selRegTargetChip" class="form-select reg-target-select" onchange="onTargetChipChanged()">
+                                        <option value="16">🌐 全阵面广播 (全部 16 颗芯片统一配置)</option>
+                                        <option value="0">CHIP 00 [外围 R4C4]</option>
+                                        <option value="1">CHIP 01 [外围 R2C4]</option>
+                                        <option value="2">CHIP 02 [外围 R3C1]</option>
+                                        <option value="3">CHIP 03 [外围 R1C1]</option>
+                                        <option value="4">CHIP 04 [外围 R4C2]</option>
+                                        <option value="5">CHIP 05 ⭐ [中心核心 R2C2]</option>
+                                        <option value="6">CHIP 06 ⭐ [中心核心 R3C3]</option>
+                                        <option value="7">CHIP 07 [外围 R1C3]</option>
+                                        <option value="8">CHIP 08 [外围 R4C3]</option>
+                                        <option value="9">CHIP 09 ⭐ [中心核心 R2C3]</option>
+                                        <option value="10">CHIP 10 ⭐ [中心核心 R3C2]</option>
+                                        <option value="11">CHIP 11 [外围 R1C2]</option>
+                                        <option value="12">CHIP 12 [外围 R4C1]</option>
+                                        <option value="13">CHIP 13 [外围 R2C1]</option>
+                                        <option value="14">CHIP 14 [外围 R3C4]</option>
+                                        <option value="15">CHIP 15 [外围 R1C4]</option>
+                                    </select>
+                                </div>
+                                <div class="reg-target-quick-btns">
+                                    <button type="button" class="btn-target-chip active" id="btnChipTargetAll" onclick="setTargetChipQuick(16)">🌐 全阵面(16)</button>
+                                    <button type="button" class="btn-target-chip" id="btnChipTargetCenter" onclick="batchSetCenterChips()" title="一键下发中心4片 (05, 06, 09, 10)">⭐ 中心4片</button>
+                                    <button type="button" class="btn-target-chip" id="btnChipTargetPeriphery" onclick="batchSetPeripheryChips()" title="一键下发外围12片">🛡️ 外围12片</button>
+                                </div>
+                            </div>
+
+                            <!-- One-Click Array Bias Profile Section ($xxBIP) -->
+                            <div class="profile-quick-section">
+                                <div class="profile-quick-header">
+                                    <span class="profile-quick-title">⚡ 阵面偏置剖面一键生效 ($xxBIP)</span>
+                                </div>
+                                <div class="profile-btn-grid">
+                                    <button type="button" class="btn-profile-op" onclick="sendBipCmd(0)" title="全阵面 16 片统一加载 48 16 32 32">
+                                        <span class="p-icon">⚖️</span>
+                                        <span class="p-name">P0 标称均衡</span>
+                                        <span class="p-sub">全阵 48 16 32 32</span>
+                                    </button>
+                                    <button type="button" class="btn-profile-op btn-profile-highlight" onclick="sendBipCmd(1)" title="中心4片加载 48 24 36 32，外围12片加载 48 16 32 32">
+                                        <span class="p-icon">🎯</span>
+                                        <span class="p-name">P1 中心增强</span>
+                                        <span class="p-sub">中心强增益/外围高敏</span>
+                                    </button>
+                                    <button type="button" class="btn-profile-op" onclick="sendBipCmd(2)" title="全阵面 16 片统一加载 48 24 36 32 强增益">
+                                        <span class="p-icon">🔥</span>
+                                        <span class="p-name">P2 极限高敏</span>
+                                        <span class="p-sub">全阵 48 24 36 32</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Compact 8 Presets Selector (2 Rows of 4 Compact Buttons) -->
+                            <div class="preset-compact-section">
+                                <div class="preset-compact-grid">
+                                    <button type="button" id="btnPresetGroup1" class="preset-compact-btn" onclick="applyPresetGroup('group1')">
+                                        <span class="p-tag tag-cyan">推1</span> 标称(32)
+                                    </button>
+                                    <button type="button" id="btnPresetGroup2" class="preset-compact-btn" onclick="applyPresetGroup('group2')">
+                                        <span class="p-tag tag-purple">推2</span> 全功率(63)
+                                    </button>
+                                    <button type="button" id="btnPresetGroup3" class="preset-compact-btn active" onclick="applyPresetGroup('group3')">
+                                        <span class="p-tag tag-emerald">推3</span> 黄金高敏
+                                    </button>
+                                    <button type="button" id="btnPresetGroup4" class="preset-compact-btn" onclick="applyPresetGroup('group4')">
+                                        <span class="p-tag tag-amber">推4</span> 极限强增益
+                                    </button>
+                                </div>
+                                <div class="preset-compact-grid" style="margin-top: 4px;">
+                                    <button type="button" id="btnPresetCustom1" class="preset-compact-btn custom-btn" onclick="applyPresetGroup('custom1')">
+                                        <span class="p-tag tag-indigo">自A</span> <span id="lblCustomVals1">32,32,32,32</span>
+                                    </button>
+                                    <button type="button" id="btnPresetCustom2" class="preset-compact-btn custom-btn" onclick="applyPresetGroup('custom2')">
+                                        <span class="p-tag tag-teal">自B</span> <span id="lblCustomVals2">48,48,48,48</span>
+                                    </button>
+                                    <button type="button" id="btnPresetCustom3" class="preset-compact-btn custom-btn" onclick="applyPresetGroup('custom3')">
+                                        <span class="p-tag tag-rose">自C</span> <span id="lblCustomVals3">20,28,36,44</span>
+                                    </button>
+                                    <button type="button" id="btnPresetCustom4" class="preset-compact-btn custom-btn" onclick="applyPresetGroup('custom4')">
+                                        <span class="p-tag tag-violet">自D</span> <span id="lblCustomVals4">16,20,24,28</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 4 Registers Inputs with Live Steppers and Dynamic Pin Names -->
+                            <div class="param-grid four-cols reg-inputs-grid compact" style="margin-top: 6px;">
+                                <div class="param-item reg-item">
+                                    <div class="reg-hdr-row">
+                                        <span class="reg-title">REG1</span>
+                                        <span class="reg-fn-tag" id="regFn1">LNA1</span>
+                                        <span class="hex-badge" id="hexTag1">0x30</span>
+                                    </div>
+                                    <div class="reg-input-stepper">
+                                        <button type="button" class="btn-step" onclick="stepRegValue('inpReg1', -1)">-</button>
+                                        <input type="text" id="inpReg1" value="48" class="input-sm reg-input" oninput="onRegInputChanged(1)">
+                                        <button type="button" class="btn-step" onclick="stepRegValue('inpReg1', 1)">+</button>
+                                    </div>
+                                </div>
+
+                                <div class="param-item reg-item">
+                                    <div class="reg-hdr-row">
+                                        <span class="reg-title">REG2</span>
+                                        <span class="reg-fn-tag" id="regFn2">LNA2</span>
+                                        <span class="hex-badge" id="hexTag2">0x10</span>
+                                    </div>
+                                    <div class="reg-input-stepper">
+                                        <button type="button" class="btn-step" onclick="stepRegValue('inpReg2', -1)">-</button>
+                                        <input type="text" id="inpReg2" value="16" class="input-sm reg-input" oninput="onRegInputChanged(2)">
+                                        <button type="button" class="btn-step" onclick="stepRegValue('inpReg2', 1)">+</button>
+                                    </div>
+                                </div>
+
+                                <div class="param-item reg-item">
+                                    <div class="reg-hdr-row">
+                                        <span class="reg-title">REG3</span>
+                                        <span class="reg-fn-tag" id="regFn3">AMP1</span>
+                                        <span class="hex-badge" id="hexTag3">0x20</span>
+                                    </div>
+                                    <div class="reg-input-stepper">
+                                        <button type="button" class="btn-step" onclick="stepRegValue('inpReg3', -1)">-</button>
+                                        <input type="text" id="inpReg3" value="32" class="input-sm reg-input" oninput="onRegInputChanged(3)">
+                                        <button type="button" class="btn-step" onclick="stepRegValue('inpReg3', 1)">+</button>
+                                    </div>
+                                </div>
+
+                                <div class="param-item reg-item">
+                                    <div class="reg-hdr-row">
+                                        <span class="reg-title">REG4</span>
+                                        <span class="reg-fn-tag" id="regFn4">AMP2</span>
+                                        <span class="hex-badge" id="hexTag4">0x20</span>
+                                    </div>
+                                    <div class="reg-input-stepper">
+                                        <button type="button" class="btn-step" onclick="stepRegValue('inpReg4', -1)">-</button>
+                                        <input type="text" id="inpReg4" value="32" class="input-sm reg-input" oninput="onRegInputChanged(4)">
+                                        <button type="button" class="btn-step" onclick="stepRegValue('inpReg4', 1)">+</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Action Utility & Direction Row -->
+                            <div class="reg-util-row" style="margin-top: 6px;">
+                                <div class="slot-save-btns">
+                                    <button type="button" class="btn-slot-save" onclick="saveCurrentAsCustomSlot('custom1')" title="存至自A">存A</button>
+                                    <button type="button" class="btn-slot-save" onclick="saveCurrentAsCustomSlot('custom2')" title="存至自B">存B</button>
+                                    <button type="button" class="btn-slot-save" onclick="saveCurrentAsCustomSlot('custom3')" title="存至自C">存C</button>
+                                    <button type="button" class="btn-slot-save" onclick="saveCurrentAsCustomSlot('custom4')" title="存至自D">存D</button>
+                                    <button type="button" class="btn-tool-preset" onclick="setAllRegs(32)">全32</button>
+                                    <button type="button" class="btn-tool-preset" onclick="setAllRegs(63)">全63</button>
+                                    <button type="button" class="btn-tool-preset btn-random" onclick="randomizeRegs()" title="随机生成 4 组 0~63 寄存器值">🎲 随机0~63</button>
+                                </div>
+                                <div class="reg-dir-wrap">
+                                    <label class="radio-pill"><input type="radio" name="regDir" value="1" onchange="updateRegFnLabels()"> TX</label>
+                                    <label class="radio-pill"><input type="radio" name="regDir" value="0" checked onchange="updateRegFnLabels()"> RX</label>
+                                </div>
+                            </div>
+
+                            <!-- Send REG Button (Always visible) -->
+                            <button class="btn-block btn-purple" id="btnSendReg" onclick="sendRegCmd()" style="margin-top: 8px;">
+                                💾 写入全阵面 TR 寄存器并校验回读 ($xxREG)
+                            </button>
+
+                            <!-- Live REG Readback Verification Card -->
+                            <div class="reg-readback-card" id="boxRegReadback" style="margin-top: 6px;">
+                                <span class="reg-reply-title">回读响应:</span>
+                                <span id="txtRegReply" class="reg-reply-content">暂无回读响应</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Custom Command (ASCII & HEX) -->
+                    <div id="tabContent_raw" class="cmd-tab-content">
+                        <div class="cmd-group">
+                            <div class="group-header">
+                                <span class="group-title">自定义指令发送</span>
+                                <div class="cmd-mode-selector">
+                                    <label class="radio-pill"><input type="radio" name="customMode" value="ascii" checked onchange="switchCustomMode('ascii')"> ASCII 文本</label>
+                                    <label class="radio-pill"><input type="radio" name="customMode" value="hex" onchange="switchCustomMode('hex')"> HEX 十六进制</label>
+                                </div>
+                            </div>
+
+                            <!-- ASCII Command Section -->
+                            <div id="secCustomAscii">
+                                <div class="template-chips">
+                                    <span class="chip-hint">快捷模版:</span>
+                                    <button class="chip-item" onclick="insertRawTemplate('$xxPTS,1')">$xxPTS,1</button>
+                                    <button class="chip-item" onclick="insertRawTemplate('$xxATS,0,0,0,0,12250,14250,0')">$xxATS...</button>
+                                    <button class="chip-item" onclick="insertRawTemplate('$xxREG,48,16,32,32,0')">$xxREG广播(高敏)</button>
+                                    <button class="chip-item" onclick="insertRawTemplate('$xxREG,5,48,24,36,32,0')">$xxREG单片(中心05)</button>
+                                    <button class="chip-item" onclick="insertRawTemplate('$xxBIP,1')">$xxBIP,1(中心增强)</button>
+                                </div>
+                                <div class="form-grid-inline" style="margin-top: 8px;">
+                                    <input type="text" id="inpRawCmd" placeholder="输入任意指令，如 $xx... (自动补齐*CS校验)" class="input-sm flex-1" onkeydown="if(event.key==='Enter') sendRawCmd()">
+                                    <button class="btn-sm btn-primary" onclick="sendRawCmd()">发送</button>
+                                </div>
+                            </div>
+
+                            <!-- HEX Command Section -->
+                            <div id="secCustomHex" style="display: none;">
+                                <div class="template-chips">
+                                    <span class="chip-hint">快捷HEX帧:</span>
+                                    <button class="chip-item" onclick="insertHexTemplate('AA 99 00 0A 03 0F 00 FF')">⚡ 阵面上电</button>
+                                    <button class="chip-item" onclick="insertHexTemplate('AA 99 00 0A 03 0F 00 00')">🛑 阵面下电</button>
+                                    <button class="chip-item" onclick="insertHexTemplate('AA 99 00 08 01 0F')">📡 状态查询</button>
+                                </div>
+                                <div style="margin-top: 8px;">
+                                    <input type="text" id="inpHexCmd" placeholder="十六进制字节串，例如: AA 99 00 0A 03 0F 00 FF" class="input-sm" style="width: 100%; font-family: var(--font-mono);" oninput="onHexInputChange()" onkeydown="if(event.key==='Enter') sendHexCmd()">
+                                </div>
+                                <div class="form-row-between" style="margin-top: 6px;">
+                                    <label class="chk-lbl" style="color: #475569;"><input type="checkbox" id="chkAutoCrc16" checked onchange="onHexInputChange()"> 自动追加 CRC16 校验 (0x1021)</label>
+                                    <button class="btn-sm btn-primary" onclick="sendHexCmd()">发送 HEX 帧</button>
+                                </div>
+                                <div id="hexPreviewBox" class="hex-preview-box">准备发送: 0 字节</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: 标校单点误差表清零 (ERT Clear / FCODE 0x08) -->
+                    <div id="tabContent_ert" class="cmd-tab-content">
+                        <div class="cmd-group">
+                            <div class="group-header">
+                                <span class="group-title">🛠️ 标校单点误差表清零 (FCODE 0x08)</span>
+                                <span class="group-badge badge-ert" id="badgeErtState">指令: 0x08 · 单点</span>
+                            </div>
+                            
+                            <div class="hint-text" style="margin-bottom: 8px;">
+                                下发 17 字节二进制帧到 UART0，擦除指定角度与频点的 Flash 标校误差偏置：
+                            </div>
+
+                            <div class="param-grid four-cols ert-inputs-grid">
+                                <div class="param-item ert-item">
+                                    <span class="lbl">离轴角 / 俯仰 (°)</span>
+                                    <input type="number" id="inpErtPitch" value="0.0" step="0.5" min="0" max="60" class="input-sm ert-input" oninput="updateErtHexPreview()">
+                                </div>
+                                <div class="param-item ert-item">
+                                    <span class="lbl">方位角 / 航向 (°)</span>
+                                    <input type="number" id="inpErtYaw" value="0.0" step="0.5" min="0" max="360" class="input-sm ert-input" oninput="updateErtHexPreview()">
+                                </div>
+                                <div class="param-item ert-item">
+                                    <span class="lbl">频点 (GHz)</span>
+                                    <input type="number" id="inpErtFreq" value="10.700" step="0.05" min="10" max="16" class="input-sm ert-input" oninput="updateErtHexPreview()">
+                                </div>
+                                <div class="param-item ert-item">
+                                    <span class="lbl">极化方式</span>
+                                    <select id="selErtPole" class="input-sm ert-select" onchange="updateErtHexPreview()">
+                                        <option value="0" selected>水平极化 (H · 0)</option>
+                                        <option value="1">垂直极化 (V · 1)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Frequency Quick Preset Chips (Target: 10.7GHz, 13.1GHz, 14.7GHz) -->
+                            <div class="ert-shortcuts-row" style="margin-top: 6px;">
+                                <span class="chip-hint">推荐频点:</span>
+                                <button type="button" class="btn-link ert-freq-chip priority" onclick="setErtFreqPreset(10.700)">🎯 10.700 GHz</button>
+                                <button type="button" class="btn-link ert-freq-chip priority" onclick="setErtFreqPreset(13.100)">🎯 13.100 GHz</button>
+                                <button type="button" class="btn-link ert-freq-chip priority" onclick="setErtFreqPreset(14.700)">🎯 14.700 GHz</button>
+                                <button type="button" class="btn-link ert-freq-chip" onclick="setErtFreqPreset(12.250)">12.250 GHz (RX)</button>
+                                <button type="button" class="btn-link ert-freq-chip" onclick="setErtFreqPreset(14.250)">14.250 GHz (TX)</button>
+                            </div>
+
+                            <!-- Live 17-Byte Binary HEX Frame Preview -->
+                            <div class="ert-hex-preview-wrap" style="margin-top: 8px;">
+                                <div class="ert-preview-hdr">
+                                    <span class="preview-title">待发送 17 字节二进制帧预览 (自动计算 CRC16-CCITT):</span>
+                                </div>
+                                <div id="ertHexPreviewBox" class="hex-preview-box ert-hex-box">
+                                    AA 99 00 11 08 02 00 00 00 00 00 0C 00 FA 00 [CRC16]
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="btn-dual-row" style="margin-top: 10px;">
+                                <button type="button" class="btn-action btn-ert-send" onclick="sendErtClearCmd(2)">
+                                    <span class="btn-icon">🗑️</span>
+                                    <span class="btn-text">发送单点误差表清零 (0x02)</span>
+                                </button>
+                                <button type="button" class="btn-action btn-ert-all" onclick="sendErtClearCmd(3)" title="擦除全阵面所有离轴角、方位角标校误差表，请谨慎操作">
+                                    <span class="btn-icon">⚠️</span>
+                                    <span class="btn-text">全阵面清空 (0x03)</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+            <!-- End of Scrollable Upper Section (Closed properly) -->
+
+            <!-- Horizontal Drag Resizer for Terminal Logs -->
+            <div class="log-resizer" id="logResizer" title="上下拖动调节回读日志区高度，双击恢复默认自适应高度">
+                <div class="resizer-handle-line"></div>
+                <div class="resizer-pill-tag">
+                    <span class="resizer-icon">↕️</span>
+                    <span class="resizer-label">上下拖动回读日志 (双击复位)</span>
+                </div>
+            </div>
+
+            <!-- 3. Terminal Log Output with Visual Anchor -->
+            <div class="card-box log-card anchor-card-log" id="mainLogCard">
+                <div class="log-card-header">
+                    <!-- Row 1: Port Switcher & Mode Tabs with Tactical Anchor -->
+                    <div class="log-hdr-row log-hdr-primary">
+                        <div class="log-title-wrap">
+                            <span class="anchor-badge badge-terminal">03 · 遥测回读终端</span>
+                            <div class="tab-buttons">
+                                <button id="tabUart3Btn" class="tab-btn active" onclick="switchLogTab('uart3')">
+                                    <span class="term-dot rx-dot"></span>UART3 回读 (Rx)
+                                </button>
+                                <button id="tabUart0Btn" class="tab-btn" onclick="switchLogTab('uart0')">
+                                    <span class="term-dot tx-dot"></span>UART0 发送 (Tx)
+                                </button>
+                            </div>
+                        </div>
+                        <div class="log-mode-tabs">
+                            <button id="btnLogAscii" class="log-mode-btn active" onclick="setLogViewMode('ascii')">文本</button>
+                            <button id="btnLogHex" class="log-mode-btn" onclick="setLogViewMode('hex')">HEX</button>
+                            <button id="btnLogBoth" class="log-mode-btn" onclick="setLogViewMode('both')">混合</button>
+                        </div>
+                    </div>
+                    <!-- Row 2: Action Tools (Single Clean Clear Button) -->
+                    <div class="log-hdr-row log-hdr-secondary">
+                        <div class="log-status-wrap">
+                            <label class="chk-lbl" title="新数据到达时自动滚动到底部"><input type="checkbox" id="chkAutoScroll"> 自动滚屏</label>
+                            <span class="term-active-pill" id="termActivePill"><span class="pulse-term-dot"></span><span id="termActiveRate">遥测监听 921.6K</span></span>
+                        </div>
+                        <div class="log-action-btns">
+                            <button class="btn-xs btn-log-tool" onclick="copyActiveLog()" title="复制当前串口日志到剪贴板">📋 复制</button>
+                            <button class="btn-xs btn-log-tool btn-clear-log" onclick="clearActiveLog()" title="清空当前串口日志并同步清除后台缓冲区">🧹 清屏</button>
+                            <button class="btn-xs btn-log-tool btn-expand-log" id="btnExpandLog" onclick="toggleLogHeight()" title="放大日志区至最顶端 (全高终端模式)">🔝 放大至顶端</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Top Restore Banner when Log is Maximized to Top -->
+                <div class="log-maximized-banner" id="logMaximizedBanner" onclick="toggleLogHeight()">
+                    <div class="banner-left-info">
+                        <span class="pulse-beacon"></span>
+                        <strong class="banner-main-txt">✦ 全高串口遥测终端已激活 [MAXIMIZED TERMINAL HUD]</strong>
+                        <span class="banner-sub-txt">上方控制区已收起 · 点击整条或右侧按钮立即恢复</span>
+                    </div>
+                    <button class="btn-xs btn-restore-panel" onclick="event.stopPropagation(); toggleLogHeight()">⬇️ 还原控制面板</button>
+                </div>
+                <div class="card-body log-body">
+                    <div id="logUart3" class="log-terminal active"></div>
+                    <div id="logUart0" class="log-terminal"></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Vertical Drag Resizer Handle between sidebar and grid -->
+        <div class="sidebar-resizer" id="sidebarResizer" title="左右拖动可自由调节面板宽度，双击重置为 520px">
+            <button class="resizer-toggle-btn" id="btnResizerToggle" onclick="toggleSidebarCollapse(event)" title="折叠/展开侧边栏控制面板 (快捷键: Alt+S)">
+                <span id="resizerToggleIcon">◀</span>
+            </button>
+        </div>
+
+        <!-- Right Main View: 4x4 Phased-Array Chip Grid -->
+        <main class="grid-content">
+            <!-- Grid Header Bar with Visual Anchor -->
+            <div class="grid-header-bar anchor-card-grid">
+                <div class="grid-title-group">
+                    <div class="grid-title-row">
+                        <span class="anchor-badge badge-grid">05 · 相控阵面</span>
+                        <h2 class="grid-title" id="currentArrayTitle">TX 发射阵面</h2>
+                        <span class="badge-port-comp-status" id="badgePortCompStatus" style="display:none;">✨ 去端口补偿 (初值模式)</span>
+                    </div>
+                    <span class="grid-subtitle" id="currentArraySubtitle">16 芯片 · 128 通道高密度微带拓扑</span>
+                </div>
+                <div class="grid-status-badges">
+                    <!-- 去端口补偿功能按钮 (阵列界面核心操作区) -->
+                    <button class="btn-dump-action btn-portcomp-action" id="btnGridPortComp" onclick="toggleDeductPortComp()" title="点击切换：扣除微带走线固定偏置，在【物理寄存器回读原值】与【去端口补偿显示(测试系统初值)】之间切换">
+                        <span class="btn-icon">✨</span>
+                        <span id="gridPortCompText">去端口补偿</span>
+                    </button>
+                    <button class="btn-dump-action" onclick="triggerArrayDump()" title="向固件触发当前阵面幅相寄存器遍历回读">
+                        🔄 重新回读阵面幅相
+                    </button>
+                    <button class="btn-dump-action btn-reset-action" onclick="resetAllRegisters()" title="复位所有TR芯片与所有寄存器值回到初始化未读状态">
+                        ⚡ 复位所有寄存器
+                    </button>
+                    <div class="badge-stat">
+                        <span class="label">芯片响应:</span>
+                        <strong class="value" id="lblChipCount">等待回读</strong>
+                    </div>
+                    <div class="badge-stat">
+                        <span class="label">工作通道:</span>
+                        <strong class="value">128 CH</strong>
+                    </div>
+                    <div class="badge-stat">
+                        <span class="label">步进精度:</span>
+                        <strong class="value">5.625°</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Beam Inverse Estimation Result Dashboard with Visual Anchor -->
+            <div class="beam-inverse-card anchor-card-beam" id="beamInverseCard">
+                <div class="inverse-hdr">
+                    <div class="inverse-title-box">
+                        <div class="radar-hud-icon" title="空间相量反推雷达">
+                            <span class="radar-ping"></span>
+                            <span class="radar-cross"></span>
+                        </div>
+                        <div class="inverse-title-text">
+                            <div class="inverse-name-row">
+                                <span class="anchor-badge badge-beam">04 · 空间相量反推</span>
+                                <span class="inverse-name">实时波束指向反推 (结合端口补偿与 8×8 空间相量拟合)</span>
+                            </div>
+                            <span class="inverse-hint">扣除 TR 芯片端口偏置校准矩阵 · 2D 循环相量最小二乘拟合</span>
+                        </div>
+                    </div>
+                    <div class="inverse-status-box">
+                        <button id="btnPolModeToggle" class="btn-sm btn-pol-mode" onclick="togglePolMode()" title="点击切换极化算法版本：【+2.0*Pol 当前修正算法】与【-2.0*Pol 旧版算法】">
+                            <span class="mode-icon">⚡</span> <span id="polModeLabel">算法: +2.0*Pol (当前固件)</span>
+                        </button>
+                        <span class="inverse-fast-badge" title="80ms 极速高刷采样反推"><span class="pulse-dot"></span>80ms 极速反推</span>
+                        <span class="inverse-badge badge-waiting" id="invStatusBadge">等待回读流</span>
+                        <span class="inverse-meta" id="invFreqMeta">基准: 14.250 GHz (TX)</span>
+                    </div>
+                </div>
+                <div class="inverse-metrics-row six-metrics">
+                    <div class="inv-metric-box">
+                        <div class="inv-lbl">反推离轴角 (Pitch θ)</div>
+                        <div class="inv-val" id="invPitchVal">--°</div>
+                        <div class="inv-sub">空间俯仰偏移角</div>
+                    </div>
+                    <div class="inv-metric-box">
+                        <div class="inv-lbl">反推方位角 (Yaw φ)</div>
+                        <div class="inv-val" id="invYawVal">--°</div>
+                        <div class="inv-sub">空间波束航向角</div>
+                    </div>
+                    <div class="inv-metric-box">
+                        <div class="inv-lbl">反推极化角 (Pol ψ)</div>
+                        <div class="inv-val" id="invPolVal">--°</div>
+                        <div class="inv-sub" id="invPolSub">正交支路相位差合成</div>
+                    </div>
+                    <div class="inv-metric-box inv-metric-grad">
+                        <div class="inv-lbl">X向相位梯度 (ΔΦx)</div>
+                        <div class="inv-val" id="invGradXVal">--°/elem</div>
+                        <div class="inv-sub">X阵元间跃变相位差</div>
+                    </div>
+                    <div class="inv-metric-box inv-metric-grad">
+                        <div class="inv-lbl">Y向相位梯度 (ΔΦy)</div>
+                        <div class="inv-val" id="invGradYVal">--°/elem</div>
+                        <div class="inv-sub">Y阵元间跃变相位差</div>
+                    </div>
+                    <div class="inv-metric-box inv-metric-conf">
+                        <div class="inv-lbl">拟合置信度 (Coherence)</div>
+                        <div class="inv-val-sm" id="invConfVal">--%</div>
+                        <div class="inv-sub" id="invChannelsVal">有效通道: 0 / 128</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Physical Antenna Side-View Top Orientation Indicator -->
+            <div class="antenna-orientation-banner top-banner">
+                <div class="orient-icon-group">
+                    <span class="orient-arrow">▲</span>
+                    <span class="orient-main">天线物理侧顶端 (ANTENNA TOP)</span>
+                </div>
+                <div class="orient-chips-seq">
+                    <span class="seq-pill yellow-pill">奇数行 (第 1 / 3 行) · 通道 7 → 0 倒序排布 (黄标)</span>
+                    <span class="seq-sub">微带高位侧</span>
+                </div>
+            </div>
+
+            <!-- 4x4 High-Density Grid Container -->
+            <div class="array-grid-container" id="chipMatrixGrid">
+                <!-- 16 Chip Cards will be dynamically rendered here -->
+            </div>
+
+            <!-- Physical Antenna Side-View Bottom Orientation Indicator -->
+            <div class="antenna-orientation-banner bottom-banner">
+                <div class="orient-icon-group">
+                    <span class="orient-arrow">▼</span>
+                    <span class="orient-main">天线物理侧底端 (ANTENNA BOTTOM)</span>
+                </div>
+                <div class="orient-chips-seq">
+                    <span class="seq-pill green-pill">偶数行 (第 2 / 4 行) · 通道 0 → 7 正序排布 (绿标)</span>
+                    <span class="seq-sub">微带低位侧</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js?v=20260917_v5"></script>
+</body>
+</html>
